@@ -186,7 +186,6 @@ void SPI2_IRQHandler(void)
   if (LL_SPI_IsActiveFlag_RXNE(SPI2)) {
     uint8_t data = LL_SPI_ReceiveData8(SPI2);
     if ((data != 0) || ((data == 0) && (prev_data_is_null == false))) {
-
       xStreamBufferSendFromISR(xSpiRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken);
     }
     prev_data_is_null = !data;
