@@ -380,11 +380,11 @@ void UartTxTask(void *argument)
 {
   for(;;)
   {
-	uint8_t data;
-	xStreamBufferReceive(xSpiRxStreamBuffer, &data, 1, portMAX_DELAY);
-	LL_USART_TransmitData8(USART2, data);
-	LL_USART_EnableIT_TXE(USART2);
-	xSemaphoreTake(xUartTxDoneSemaphore, portMAX_DELAY);
+    uint8_t data;
+    xStreamBufferReceive(xSpiRxStreamBuffer, &data, 1, portMAX_DELAY);
+    LL_USART_TransmitData8(USART2, data);
+    LL_USART_EnableIT_TXE(USART2);
+    xSemaphoreTake(xUartTxDoneSemaphore, portMAX_DELAY);
   }
 }
 
@@ -392,15 +392,15 @@ void SpiTxTask(void *argument)
 {
   for(;;)
   {
-	uint8_t data;
-	// We have to send data even there is no input data to be able to get data from SPI slave
-	if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
-		LL_SPI_TransmitData8(SPI2, data);
-	} else {
-		LL_SPI_TransmitData8(SPI2, 0);
-	}
-	LL_SPI_EnableIT_TXE(SPI2);
-	xSemaphoreTake(xSpiTxDoneSemaphore, portMAX_DELAY);
+    uint8_t data;
+  // We have to send data even there is no input data to be able to get data from SPI slave
+  if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
+    LL_SPI_TransmitData8(SPI2, data);
+  } else {
+    LL_SPI_TransmitData8(SPI2, 0);
+  }
+    LL_SPI_EnableIT_TXE(SPI2);
+    xSemaphoreTake(xSpiTxDoneSemaphore, portMAX_DELAY);
   }
 }
 
