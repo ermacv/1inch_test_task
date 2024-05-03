@@ -24,14 +24,16 @@ void SpiTxTask(void *argument)
   for(;;)
   {
     uint8_t data;
-  // We have to send data even there is no input data to be able to get data from SPI slave
-  if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
-    LL_SPI_TransmitData8(SPI2, data);
-  } else {
-    LL_SPI_TransmitData8(SPI2, 0);
-  }
+    // We have to send data even there is no input data to be able to get data from SPI slave
+    LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_12);
+    if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
+      LL_SPI_TransmitData8(SPI2, data);
+    } else {
+      LL_SPI_TransmitData8(SPI2, 0);
+    }
     LL_SPI_EnableIT_TXE(SPI2);
     xSemaphoreTake(xSpiTxDoneSemaphore, portMAX_DELAY);
+    LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
   }
 }
 ```
@@ -42,7 +44,6 @@ void SpiTxTask(void *argument)
 ```c
 void SPI2_IRQHandler(void)
 {
-  /* USER CODE BEGIN SPI2_IRQn 0 */
   BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
   static bool prev_data_is_null = true;
   if (LL_SPI_IsActiveFlag_RXNE(SPI2)) {
@@ -57,25 +58,22 @@ void SPI2_IRQHandler(void)
 	  xSemaphoreGiveFromISR(xSpiTxDoneSemaphore, &pxHigherPriorityTaskWoken);
   }
   portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
-
-  /* USER CODE END SPI2_IRQn 0 */
-  /* USER CODE BEGIN SPI2_IRQn 1 */
-
-  /* USER CODE END SPI2_IRQn 1 */
 }
 ```
 Обработчик прерываний для UART:
 ```c
-void UartTxTask(void *argument)
+void USART2_IRQHandler(void)
 {
-  for(;;)
-  {
-    uint8_t data;
-    xStreamBufferReceive(xSpiRxStreamBuffer, &data, 1, portMAX_DELAY);
-    LL_USART_TransmitData8(USART2, data);
-    LL_USART_EnableIT_TXE(USART2);
-    xSemaphoreTake(xUartTxDoneSemaphore, portMAX_DELAY);
+  BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
+  if (LL_USART_IsActiveFlag_RXNE(USART2)) {
+    uint8_t data = LL_USART_ReceiveData8(USART2);
+    xStreamBufferSendFromISR(xUartRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken);
+  } else {
+    assert(LL_USART_IsActiveFlag_TXE(USART2));
+    LL_USART_DisableIT_TXE(USART2);
+    xSemaphoreGiveFromISR(xUartTxDoneSemaphore, &pxHigherPriorityTaskWoken);
   }
+  portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 }
 ```
 ## Способ взаимодействия
