@@ -91,7 +91,6 @@ static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-void SpiRxTaskFn(void *argument);
 void UartTxTask(void *argument);
 void SpiTxTask(void *argument);
 /* USER CODE END PFP */
@@ -133,15 +132,12 @@ int main(void)
   MX_SPI2_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  xUartRxStreamBuffer = xStreamBufferCreate(1024, 10);
-  xSpiRxStreamBuffer = xStreamBufferCreate(1024, 10);
+  xUartRxStreamBuffer = xStreamBufferCreate(1024, 1);
+  xSpiRxStreamBuffer = xStreamBufferCreate(1024, 1);
   xUartTxDoneSemaphore = xSemaphoreCreateBinary();
   xSpiTxDoneSemaphore = xSemaphoreCreateBinary();
 
   __enable_irq();
-
-  /* creation of SPI_RX_TASK */
-  SPI_RX_TASKHandle = osThreadNew(SpiRxTaskFn, NULL, &SPI_RX_TASK_attributes);
 
   /* creation of UART_TX_TASK */
   UART_TX_TASKHandle = osThreadNew(UartTxTask, NULL, &UART_TX_TASK_attributes);
@@ -380,16 +376,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-void SpiRxTaskFn(void *argument)
-{
-  for(;;)
-  {
-    osDelay(500);
-  	LL_SPI_TransmitData8(SPI2, 100);
-  }
-}
-
 void UartTxTask(void *argument)
 {
   for(;;)
@@ -408,8 +394,7 @@ void SpiTxTask(void *argument)
   {
 	uint8_t data;
 	// We have to send data even there is no input data to be able to get data from SPI slave
-	uint32_t got_bytes = xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0);
-	if (got_bytes) {
+	if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
 		LL_SPI_TransmitData8(SPI2, data);
 	} else {
 		LL_SPI_TransmitData8(SPI2, 0);
