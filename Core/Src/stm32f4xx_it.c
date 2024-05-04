@@ -53,7 +53,7 @@
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 extern StreamBufferHandle_t xUartRxStreamBuffer, xSpiRxStreamBuffer;
-extern SemaphoreHandle_t xUartTxDoneSemaphore, xSpiTxDoneSemaphore;
+extern SemaphoreHandle_t xSpiTxDoneSemaphore;
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
@@ -195,13 +195,7 @@ void SPI2_IRQHandler(void)
   } else {
 	  assert(LL_SPI_IsActiveFlag_TXE(SPI2));
 	  LL_SPI_DisableIT_TXE(SPI2);
-	  uint8_t data;
-      if (xStreamBufferReceiveFromISR(xUartRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken)) {
-        LL_SPI_TransmitData8(SPI2, data);
-      } else {
-        LL_SPI_TransmitData8(SPI2, 0);
-      }
-      LL_SPI_EnableIT_TXE(SPI2);
+	  xSemaphoreGiveFromISR(xSpiTxDoneSemaphore, &pxHigherPriorityTaskWoken);
   }
   portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 
@@ -221,9 +215,6 @@ void USART2_IRQHandler(void)
   if (LL_USART_IsActiveFlag_RXNE(USART2)) {
     uint8_t data = LL_USART_ReceiveData8(USART2);
     xStreamBufferSendFromISR(xUartRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken);
-    if (!LL_SPI_IsEnabledIT_TXE(SPI2)) {
-      LL_SPI_EnableIT_TXE(SPI2);
-    }
   } else {
     assert(LL_USART_IsActiveFlag_TXE(USART2));
     uint8_t data;

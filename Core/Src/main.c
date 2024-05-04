@@ -51,29 +51,9 @@ const osThreadAttr_t defaultTask_attributes = {
 };
 /* USER CODE BEGIN PV */
 StreamBufferHandle_t xUartRxStreamBuffer, xSpiRxStreamBuffer;
-SemaphoreHandle_t xUartTxDoneSemaphore, xSpiTxDoneSemaphore;
+SemaphoreHandle_t xSpiTxDoneSemaphore;
 
-osThreadId_t UART_RX_TASKHandle;
-const osThreadAttr_t UART_RX_TASK_attributes = {
-  .name = "UART_RX_TASK",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
 /* Definitions for SPI_RX_TASK */
-osThreadId_t SPI_RX_TASKHandle;
-const osThreadAttr_t SPI_RX_TASK_attributes = {
-  .name = "SPI_RX_TASK",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
-/* Definitions for UART_TX_TASK */
-osThreadId_t UART_TX_TASKHandle;
-const osThreadAttr_t UART_TX_TASK_attributes = {
-  .name = "UART_TX_TASK",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
-/* Definitions for SPI_TX_TASK */
 osThreadId_t SPI_TX_TASKHandle;
 const osThreadAttr_t SPI_TX_TASK_attributes = {
   .name = "SPI_TX_TASK",
@@ -134,16 +114,12 @@ int main(void)
   /* USER CODE BEGIN 2 */
   xUartRxStreamBuffer = xStreamBufferCreate(1024, 1);
   xSpiRxStreamBuffer = xStreamBufferCreate(1024, 1);
-  xUartTxDoneSemaphore = xSemaphoreCreateBinary();
   xSpiTxDoneSemaphore = xSemaphoreCreateBinary();
 
   __enable_irq();
 
-  /* creation of UART_TX_TASK */
- //UART_TX_TASKHandle = osThreadNew(UartTxTask, NULL, &UART_TX_TASK_attributes);
-
   /* creation of SPI_TX_TASK */
-  //SPI_TX_TASKHandle = osThreadNew(SpiTxTask, NULL, &SPI_TX_TASK_attributes);
+  SPI_TX_TASKHandle = osThreadNew(SpiTxTask, NULL, &SPI_TX_TASK_attributes);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -296,7 +272,6 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
   LL_SPI_Enable(SPI2);
   LL_SPI_EnableIT_RXNE(SPI2);
-  LL_SPI_EnableIT_TXE(SPI2);
   /* USER CODE END SPI2_Init 2 */
 
 }
@@ -388,17 +363,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void UartTxTask(void *argument)
-{
-  for(;;)
-  {
-    uint8_t data;
-    xStreamBufferReceive(xSpiRxStreamBuffer, &data, 1, portMAX_DELAY);
-    LL_USART_TransmitData8(USART2, data);
-    LL_USART_EnableIT_TXE(USART2);
-    xSemaphoreTake(xUartTxDoneSemaphore, portMAX_DELAY);
-  }
-}
 
 void SpiTxTask(void *argument)
 {
@@ -406,15 +370,15 @@ void SpiTxTask(void *argument)
   {
     uint8_t data;
     // We have to send data even there is no input data to be able to get data from SPI slave
-    LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_12);
-    if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
+    LL_GPIO_ResetOutputPin(SPI2_CS_GPIO_Port, SPI2_CS_Pin);
+    if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, pdMS_TO_TICKS(100))) {
       LL_SPI_TransmitData8(SPI2, data);
     } else {
       LL_SPI_TransmitData8(SPI2, 0);
     }
     LL_SPI_EnableIT_TXE(SPI2);
     xSemaphoreTake(xSpiTxDoneSemaphore, portMAX_DELAY);
-    LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+    LL_GPIO_SetOutputPin(SPI2_CS_GPIO_Port, SPI2_CS_Pin);
   }
 }
 

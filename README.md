@@ -85,4 +85,55 @@ void USART2_IRQHandler(void)
 
 Прерывание SPI несколько отличается от прерывания UART, так как там необходимо сделать "предобработку" данных перед сохранением данных в буфер. Если мы получаем `0` в качестве данных, то это может означать, что данных у SPI Slave устройства нет и этот байт не нужно сохранять. Исключением является случай, когда после не нулевого байта следует нулевой, то его нужно сохранить, так как он будет является признаком конца строки.
 
-Задача SPI несколько отличается от задача UART, так как нам необходимо постоянно отправлять данные Slave устройству даже, если у нас нет никаких данных для отправки. Это необходимо, так как для чтения данных Slave устройства должен генерироваться CLK импульс и он генерируется при передаче данных.  
+Задача SPI несколько отличается от задача UART, так как нам необходимо постоянно отправлять данные Slave устройству даже, если у нас нет никаких данных для отправки. Это необходимо, так как для чтения данных Slave устройства должен генерироваться CLK импульс и он генерируется при передаче данных.
+
+## Улучшение
+
+Задачу UART можно удалить и использовать только задачу SPI для отправки данных. 
+
+Отправка же данных по UART будет осуществляться напрямую из обработчика прерываний. SPI обработчик по принятии байта данных в буфер будет проверять включено ли прерывание передачи UART и будет его включать, если оно выключено.
+```c
+void SPI2_IRQHandler(void)
+{
+  BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
+  static bool prev_data_is_null = true;
+  if (LL_SPI_IsActiveFlag_RXNE(SPI2)) {
+    uint8_t data = LL_SPI_ReceiveData8(SPI2);
+    if ((data != 0) || ((data == 0) && (prev_data_is_null == false))) {
+      xStreamBufferSendFromISR(xSpiRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken);
+      if (!LL_USART_IsEnabledIT_TXE(USART2)) {
+      	LL_USART_EnableIT_TXE(USART2);
+      }
+    }
+    prev_data_is_null = !data;
+  } else {
+	  assert(LL_SPI_IsActiveFlag_TXE(SPI2));
+	  LL_SPI_DisableIT_TXE(SPI2);
+	  xSemaphoreGiveFromISR(xSpiTxDoneSemaphore, &pxHigherPriorityTaskWoken);
+  }
+  portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
+}
+```
+
+Обработчик прерываний UART будет по приходу события `TXE` брать данные из буфера RX SPI и отправлять данные. Если данных в буфере нет, то отключит прерывание `TXE`.
+```c
+void USART2_IRQHandler(void)
+{
+  BaseType_t pxHigherPriorityTaskWoken = pdFALSE;
+  if (LL_USART_IsActiveFlag_RXNE(USART2)) {
+    uint8_t data = LL_USART_ReceiveData8(USART2);
+    xStreamBufferSendFromISR(xUartRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken);
+  } else {
+    assert(LL_USART_IsActiveFlag_TXE(USART2));
+    uint8_t data;
+    if (xStreamBufferReceiveFromISR(xSpiRxStreamBuffer, &data, 1, &pxHigherPriorityTaskWoken)) {
+      LL_USART_TransmitData8(USART2, data);
+    } else {
+      LL_USART_DisableIT_TXE(USART2);
+    }
+  }
+  portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
+}
+```
+
+В основе этого способа лежит факт того, что прерывания имеют одинаковый приоритет и из обработчика SPI можно безопасно проверять статус и включать прерывания UART и, соответственно, обработчик UART может безопасно отключать свои прерывания.   
