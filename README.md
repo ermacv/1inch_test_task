@@ -25,15 +25,15 @@ void SpiTxTask(void *argument)
   {
     uint8_t data;
     // We have to send data even there is no input data to be able to get data from SPI slave
-    LL_GPIO_ResetOutputPin(GPIOB, LL_GPIO_PIN_12);
-    if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, 0)) {
+    LL_GPIO_ResetOutputPin(SPI2_CS_GPIO_Port, SPI2_CS_Pin);
+    if (xStreamBufferReceive(xUartRxStreamBuffer, &data, 1, pdMS_TO_TICKS(100))) {
       LL_SPI_TransmitData8(SPI2, data);
     } else {
       LL_SPI_TransmitData8(SPI2, 0);
     }
     LL_SPI_EnableIT_TXE(SPI2);
     xSemaphoreTake(xSpiTxDoneSemaphore, portMAX_DELAY);
-    LL_GPIO_SetOutputPin(GPIOB, LL_GPIO_PIN_12);
+    LL_GPIO_SetOutputPin(SPI2_CS_GPIO_Port, SPI2_CS_Pin);
   }
 }
 ```
