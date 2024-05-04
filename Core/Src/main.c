@@ -53,19 +53,6 @@ const osThreadAttr_t defaultTask_attributes = {
 StreamBufferHandle_t xUartRxStreamBuffer, xSpiRxStreamBuffer;
 SemaphoreHandle_t xUartTxDoneSemaphore, xSpiTxDoneSemaphore;
 
-osThreadId_t UART_RX_TASKHandle;
-const osThreadAttr_t UART_RX_TASK_attributes = {
-  .name = "UART_RX_TASK",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
-/* Definitions for SPI_RX_TASK */
-osThreadId_t SPI_RX_TASKHandle;
-const osThreadAttr_t SPI_RX_TASK_attributes = {
-  .name = "SPI_RX_TASK",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
-};
 /* Definitions for UART_TX_TASK */
 osThreadId_t UART_TX_TASKHandle;
 const osThreadAttr_t UART_TX_TASK_attributes = {
