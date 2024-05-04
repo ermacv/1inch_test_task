@@ -140,10 +140,10 @@ int main(void)
   __enable_irq();
 
   /* creation of UART_TX_TASK */
-  UART_TX_TASKHandle = osThreadNew(UartTxTask, NULL, &UART_TX_TASK_attributes);
+ //UART_TX_TASKHandle = osThreadNew(UartTxTask, NULL, &UART_TX_TASK_attributes);
 
   /* creation of SPI_TX_TASK */
-  SPI_TX_TASKHandle = osThreadNew(SpiTxTask, NULL, &SPI_TX_TASK_attributes);
+  //SPI_TX_TASKHandle = osThreadNew(SpiTxTask, NULL, &SPI_TX_TASK_attributes);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -296,6 +296,7 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
   LL_SPI_Enable(SPI2);
   LL_SPI_EnableIT_RXNE(SPI2);
+  LL_SPI_EnableIT_TXE(SPI2);
   /* USER CODE END SPI2_Init 2 */
 
 }
